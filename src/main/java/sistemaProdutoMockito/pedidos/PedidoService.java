@@ -4,6 +4,7 @@ import sistemaProdutoMockito.exception.EstoqueInsuficienteException;
 import sistemaProdutoMockito.exception.ProdutoNaoEncontradoException;
 import sistemaProdutoMockito.produto.Produto;
 import sistemaProdutoMockito.produto.ProdutoRepository;
+import sistemaProdutoMockito.exception.ErroAoSalvarPedidoException;
 
 public class PedidoService {
 
@@ -38,7 +39,12 @@ public class PedidoService {
         double total = produto.getPreco() * quantidade;
         Pedido pedido = new Pedido(produto, quantidade, total);
 
-        pedidoRepository.salvar(pedido);
+        try {
+            pedidoRepository.salvar(pedido);
+        } catch (RuntimeException e) {
+            throw new ErroAoSalvarPedidoException(
+                    "Falha ao salvar o pedido", e);
+        }
 
         return pedido;
     }

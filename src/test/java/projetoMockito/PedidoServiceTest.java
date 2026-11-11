@@ -1,4 +1,4 @@
-package projetoProdutoMockito;
+package projetoMockito;
 
 import sistemaProdutoMockito.produto.Produto;
 import sistemaProdutoMockito.produto.ProdutoRepository;
