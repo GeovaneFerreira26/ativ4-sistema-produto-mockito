@@ -1,0 +1,444 @@
+
+RELATORIO DE ANALISE E CORRECAO
+PROJETO: sistema-produtos-mockito
+BASE DE ANALISE: Atividade_Testes_Unitarios_Mockito_02.pdf + arquivos Java anexados
+ESCOPO: somente os requisitos e desafios descritos no PDF.
+
+======================================================================
+1. DIAGNOSTICO GERAL
+======================================================================
+
+Foram analisados o PDF da atividade e os arquivos Java anexados.
+
+O problema que explica os mocks nao serem inicializados e a ausencia do import
+da classe real MockitoExtension nos dois arquivos de teste. Os arquivos possuem
+@ExtendWith(MockitoExtension.class), mas nao importam:
+
+import org.mockito.junit.jupiter.MockitoExtension;
+
+Na arvore do projeto apresentada anteriormente aparece uma classe chamada
+MockitoExtension dentro do codigo de teste. Essa classe nao deve substituir a
+extensao fornecida pela dependencia mockito-junit-jupiter.
+
+CORRECAO:
+- Remover a classe MockitoExtension.java criada manualmente, caso ela exista.
+- Importar org.mockito.junit.jupiter.MockitoExtension nos dois testes.
+- Manter @ExtendWith(MockitoExtension.class) acima de cada classe de teste.
+
+Sem a extensao oficial, @Mock e @InjectMocks nao sao inicializados pelo ciclo
+de testes. Isso e compativel com o erro observado anteriormente:
+NullPointerException ao tentar chamar ProdutoRepository.salvar(...), e testes
+esperando IllegalArgumentException mas recebendo NullPointerException.
+
+OUTROS PROBLEMAS IDENTIFICADOS:
+1. ProdutoService.java nao preserva a causa da falha ao salvar: o PDF determina
+   new ErroAoSalvarProdutoException("Falha ao salvar o produto", e), mas o
+   arquivo atual chama o construtor com apenas uma mensagem.
+2. ErroAoSalvarProdutoException.java possui somente construtor de um argumento;
+   precisa aceitar mensagem e causa para corresponder ao codigo do PDF.
+3. ProdutoServiceTest.java declara package projetoMockito, enquanto
+   PedidoServiceTest.java declara package projetoProdutoMockito. Na estrutura
+   exibida, os dois testes estao sob o pacote/projetoProdutoMockito. Padronizar
+   os dois arquivos para projetoProdutoMockito.
+4. PedidoService.java ainda esta na versao-base do PDF e nao trata a falha de
+   PedidoRepository. O PDF apresenta esse tratamento como desafio opcional
+   (Atividade 7, Cenario D). Como o projeto ja possui
+   ErroAoSalvarPedidoException e o teste correspondente, o metodo deve ser
+   adaptado para que esse teste passe.
+5. Nao foi anexado um arquivo pom.xml nesta remessa. Portanto, nao e possivel
+   confirmar a configuracao Maven real do projeto. A secao 6 deste relatorio
+   apresenta apenas o trecho de dependencias que deve ser conferido com o PDF.
+
+======================================================================
+2. ESTRUTURA DE PACOTES A MANTER
+======================================================================
+
+Manter os pacotes de codigo principal existentes:
+
+src/main/java/sistemaProdutoMockito/
+    exception/
+        ErroAoSalvarPedidoException.java
+        ErroAoSalvarProdutoException.java
+        EstoqueInsuficienteException.java
+        ProdutoNaoEncontradoException.java
+
+    pedidos/
+        Pedido.java
+        PedidoRepository.java
+        PedidoService.java
+
+    produto/
+        Produto.java
+        ProdutoRepository.java
+        ProdutoService.java
+
+Nos testes, padronizar o package dos dois arquivos:
+
+src/test/java/projetoProdutoMockito/
+    PedidoServiceTest.java
+    ProdutoServiceTest.java
+
+ATENCAO:
+O nome do pacote declarado na primeira linha do arquivo Java deve corresponder
+ao pacote onde o arquivo esta localizado no projeto. Se o diretorio/package
+existente no IntelliJ for projetoProdutoMockito, os dois testes devem declarar:
+
+package projetoProdutoMockito;
+
+Nao renomear os pacotes do codigo principal sistemaProdutoMockito.
+
+======================================================================
+3. CORRECAO 1 - ProdutoServiceTest.java
+======================================================================
+
+CAMINHO:
+src/test/java/projetoProdutoMockito/ProdutoServiceTest.java
+
+PROBLEMA:
+O arquivo anexado importa Test, ExtendWith, InjectMocks e Mock, mas nao importa
+MockitoExtension. A anotacao @ExtendWith usa a extensao oficial do Mockito.
+
+SUBSTITUIR O BLOCO INICIAL DO ARQUIVO PELO SEGUINTE:
+
+package projetoProdutoMockito;
+
+import sistemaProdutoMockito.produto.Produto;
+import sistemaProdutoMockito.produto.ProdutoRepository;
+import sistemaProdutoMockito.produto.ProdutoService;
+import sistemaProdutoMockito.exception.ErroAoSalvarProdutoException;
+import sistemaProdutoMockito.exception.ProdutoNaoEncontradoException;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class ProdutoServiceTest {
+
+    @Mock
+    private ProdutoRepository repository;
+
+    @InjectMocks
+    private ProdutoService service;
+
+A PARTIR DAQUI, MANTER OS METODOS DE TESTE QUE JA ESTAO NO ARQUIVO.
+
+IMPORTANTE:
+- Nao criar uma classe propria chamada MockitoExtension.
+- Nao remover @ExtendWith(MockitoExtension.class).
+- Nao colocar @Mock no ProdutoService.
+- ProdutoService deve continuar sendo a instancia real criada por @InjectMocks.
+- ProdutoRepository deve continuar sendo o mock.
+
+======================================================================
+4. CORRECAO 2 - PedidoServiceTest.java
+======================================================================
+
+CAMINHO:
+src/test/java/projetoProdutoMockito/PedidoServiceTest.java
+
+PROBLEMA:
+O arquivo tambem nao importa MockitoExtension. Alem disso, deve usar o mesmo
+package de teste que ProdutoServiceTest.java.
+
+SUBSTITUIR O BLOCO INICIAL DO ARQUIVO PELO SEGUINTE:
+
+package projetoProdutoMockito;
+
+import sistemaProdutoMockito.produto.Produto;
+import sistemaProdutoMockito.produto.ProdutoRepository;
+import sistemaProdutoMockito.pedidos.Pedido;
+import sistemaProdutoMockito.pedidos.PedidoRepository;
+import sistemaProdutoMockito.pedidos.PedidoService;
+import sistemaProdutoMockito.exception.EstoqueInsuficienteException;
+import sistemaProdutoMockito.exception.ErroAoSalvarPedidoException;
+import sistemaProdutoMockito.exception.ProdutoNaoEncontradoException;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class PedidoServiceTest {
+
+    @Mock
+    private ProdutoRepository produtoRepository;
+
+    @Mock
+    private PedidoRepository pedidoRepository;
+
+    @InjectMocks
+    private PedidoService service;
+
+A PARTIR DAQUI, MANTER OS METODOS DE TESTE QUE JA ESTAO NO ARQUIVO.
+
+O teste utiliza dois mocks, conforme a Atividade 6:
+- ProdutoRepository: consulta o produto.
+- PedidoRepository: salva o pedido.
+PedidoService permanece como instancia real criada por @InjectMocks.
+
+======================================================================
+5. CORRECAO 3 - ErroAoSalvarProdutoException.java
+======================================================================
+
+CAMINHO:
+src/main/java/sistemaProdutoMockito/exception/ErroAoSalvarProdutoException.java
+
+PROBLEMA:
+O arquivo atual aceita apenas uma String:
+ErroAoSalvarProdutoException(String mensagem)
+
+Porem, o codigo-base do PDF determina que o Service repasse tambem a causa
+original da falha (Throwable causa).
+
+SUBSTITUIR TODO O CONTEUDO DO ARQUIVO POR:
+
+package sistemaProdutoMockito.exception;
+
+public class ErroAoSalvarProdutoException extends RuntimeException {
+
+    public ErroAoSalvarProdutoException(String mensagem, Throwable causa) {
+        super(mensagem, causa);
+    }
+}
+
+======================================================================
+6. CORRECAO 4 - ProdutoService.java
+======================================================================
+
+CAMINHO:
+src/main/java/sistemaProdutoMockito/produto/ProdutoService.java
+
+PROBLEMA:
+O arquivo anexado captura RuntimeException, mas cria
+ErroAoSalvarProdutoException passando somente a mensagem.
+
+O PDF determina que a excecao original seja preservada como causa.
+
+SUBSTITUIR SOMENTE O BLOCO try/catch DO METODO salvar() POR:
+
+        try {
+            return repository.salvar(produto);
+        } catch (RuntimeException e) {
+            throw new ErroAoSalvarProdutoException(
+                    "Falha ao salvar o produto", e);
+        }
+
+NAO ALTERAR:
+- A validacao de produto nulo.
+- A validacao de nome nulo ou em branco.
+- A validacao de preco maior que zero.
+- A validacao de quantidade nao negativa.
+- O metodo buscarPorId().
+
+Com isso, a implementacao fica de acordo com RF04 do PDF e com o teste
+de falha do Repository (CT10).
+
+======================================================================
+7. CORRECAO 5 - PedidoService.java (DESAFIO 7, CENARIO D)
+======================================================================
+
+CAMINHO:
+src/main/java/sistemaProdutoMockito/pedidos/PedidoService.java
+
+SITUACAO:
+O arquivo anexado corresponde a versao-base do PDF. Nessa versao, uma falha
+RuntimeException de PedidoRepository.salvar() se propaga diretamente.
+
+Entretanto, o projeto anexado ja possui:
+- ErroAoSalvarPedidoException.java
+- Um teste chamado deveConverterFalhaAoSalvarPedidoNaVersaoMelhorada()
+
+Para esse teste passar, implementar o Cenario D do desafio do PDF.
+
+ADICIONAR O IMPORT:
+
+import sistemaProdutoMockito.exception.ErroAoSalvarPedidoException;
+
+No metodo criarPedido(), manter todas as validacoes e o calculo existentes.
+SUBSTITUIR SOMENTE:
+
+        pedidoRepository.salvar(pedido);
+
+POR:
+
+        try {
+            pedidoRepository.salvar(pedido);
+        } catch (RuntimeException e) {
+            throw new ErroAoSalvarPedidoException(
+                    "Falha ao salvar o pedido", e);
+        }
+
+O final do metodo permanece:
+
+        return pedido;
+
+RESULTADO:
+- A quantidade invalida continua gerando IllegalArgumentException.
+- Produto inexistente continua gerando ProdutoNaoEncontradoException.
+- Estoque insuficiente continua gerando EstoqueInsuficienteException.
+- A falha do PedidoRepository passa a gerar ErroAoSalvarPedidoException.
+- Se ProdutoRepository.buscarPorId() lancar RuntimeException, o fluxo e
+  interrompido antes de chamar PedidoRepository.salvar().
+
+NOTA SOBRE OS TESTES EXISTENTES:
+O teste devePropagarFalhaDoPedidoRepositoryNaVersaoBase usa
+assertThrows(RuntimeException.class). ErroAoSalvarPedidoException estende
+RuntimeException; portanto, essa verificacao tambem aceita a excecao especifica.
+O teste deveConverterFalhaAoSalvarPedidoNaVersaoMelhorada verifica o tipo
+especifico exigido pelo desafio. Os dois podem permanecer ativos.
+
+======================================================================
+8. CONFERENCIA DO pom.xml
+======================================================================
+
+O arquivo pom.xml nao foi anexado entre os arquivos recebidos. Nao e possivel
+afirmar que a configuracao atual esteja correta sem examinar o arquivo real.
+
+Compare o bloco <dependencies> do pom.xml com o trecho EXATO indicado no PDF:
+
+<dependencies>
+    <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter</artifactId>
+        <version>5.11.4</version>
+        <scope>test</scope>
+    </dependency>
+
+    <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-junit-jupiter</artifactId>
+        <version>5.14.2</version>
+        <scope>test</scope>
+    </dependency>
+</dependencies>
+
+A dependencia mockito-junit-jupiter disponibiliza:
+org.mockito.junit.jupiter.MockitoExtension
+
+Nao substitua por mockito-core isoladamente: a atividade especifica
+mockito-junit-jupiter.
+
+Nao acrescentar dependencias de Spring, JPA, MySQL, banco de dados ou outras
+bibliotecas. Elas nao fazem parte do escopo deste PDF.
+
+Depois de conferir/salvar o pom.xml:
+1. Abrir a janela Maven no IntelliJ.
+2. Executar Reload All Maven Projects.
+3. Aguardar a resolucao das dependencias.
+
+======================================================================
+9. SOBRE O JDK
+======================================================================
+
+O PDF exige Java JDK 17 ou superior.
+O print de execucao anterior mostra o caminho:
+C:\Program Files\Java\jdk-23\bin\java.exe
+
+JDK 23 atende ao requisito de versao minima do PDF. Nao e necessario trocar
+para JDK 17 apenas por causa desta atividade, desde que o projeto esteja
+configurado para usar uma versao compativel.
+
+======================================================================
+10. ORDEM EXATA PARA APLICAR AS CORRECOES
+======================================================================
+
+1. No pacote de testes, excluir a classe MockitoExtension.java criada
+   manualmente, caso exista.
+2. Confirmar que a dependencia mockito-junit-jupiter 5.14.2 esta no pom.xml.
+3. Atualizar o Maven pelo Reload All Maven Projects.
+4. Corrigir o package de ProdutoServiceTest para projetoProdutoMockito,
+   conforme o pacote exibido na estrutura do projeto.
+5. Adicionar import org.mockito.junit.jupiter.MockitoExtension em
+   ProdutoServiceTest.java.
+6. Corrigir o package de PedidoServiceTest para projetoProdutoMockito.
+7. Adicionar import org.mockito.junit.jupiter.MockitoExtension em
+   PedidoServiceTest.java.
+8. Alterar ErroAoSalvarProdutoException para receber mensagem e causa.
+9. Corrigir o catch de ProdutoService.salvar() para repassar a causa e.
+10. Implementar o tratamento de ErroAoSalvarPedidoException no metodo
+    PedidoService.criarPedido(), pois o projeto ja contem o teste do desafio D.
+11. Salvar todos os arquivos.
+12. Executar os testes novamente.
+
+======================================================================
+11. EXECUCAO E RESULTADOS ESPERADOS
+======================================================================
+
+Na raiz do projeto, na pasta que contem pom.xml, executar:
+
+mvn clean test
+
+Ou executar as classes pelo IntelliJ:
+- ProdutoServiceTest
+- PedidoServiceTest
+
+Resultados esperados apos as correcoes:
+- @Mock inicializado pelo Mockito.
+- @InjectMocks injeta os mocks nos Services reais.
+- ProdutoServiceTest executa os cenarios CT01 a CT10 e os cenarios adicionais
+  CT11 a CT13 presentes no arquivo atual.
+- PedidoServiceTest executa os cenarios PED01 a PED08 e os cenarios de falha
+  da Atividade 7 presentes no arquivo atual.
+- Nenhum teste acessa banco de dados real.
+- As validacoes de entrada impedem a chamada ao Repository quando os dados
+  sao invalidos.
+- Falhas simuladas com doThrow sao tratadas conforme os requisitos/desafio.
+
+Se ainda houver falha:
+- Erro de compilacao em MockitoExtension: verificar import e dependencia Maven.
+- NullPointerException no mock: verificar se a classe customizada
+  MockitoExtension foi removida e se @ExtendWith usa a classe oficial.
+- Erro de construtor ErroAoSalvarProdutoException: conferir se a classe e o
+  Service foram alterados conforme as secoes 5 e 6.
+- Erro no teste de falha do pedido: conferir se foi implementado o Cenario D
+  conforme a secao 7.
+
+======================================================================
+12. O QUE NAO DEVE SER ALTERADO
+======================================================================
+
+Para respeitar o escopo do PDF:
+- Nao criar Controller.
+- Nao criar banco de dados.
+- Nao adicionar implementacao concreta de Repository.
+- Nao adicionar Spring Boot, JPA ou driver MySQL.
+- Nao alterar os atributos e metodos de Produto.
+- Nao alterar os atributos e metodos de Pedido.
+- Nao alterar as regras de calculo do pedido.
+- Nao alterar as regras de validacao definidas no PDF.
+- Nao mockar ProdutoService nem PedidoService.
+- Nao criar novos modulos Maven.
+- Nao criar funcionalidades fora dos requisitos RF01 a RF05 e do desafio
+  opcional da Atividade 7, Cenario D.
+
+======================================================================
+13. CONCLUSAO DA ANALISE
+======================================================================
+
+As correcoes centrais para os erros observados sao:
+1. Usar a MockitoExtension oficial, com o import correto, nos dois testes.
+2. Remover a classe MockitoExtension manual, caso esteja no pacote de testes.
+3. Padronizar o package dos dois testes para o pacote exibido na estrutura.
+4. Corrigir a assinatura de ErroAoSalvarProdutoException e o catch do
+   ProdutoService para preservar a causa original.
+5. Implementar o tratamento de ErroAoSalvarPedidoException no PedidoService,
+   pois o teste do desafio D ja esta no projeto.
+
+A configuracao real do pom.xml permanece pendente de verificacao porque esse
+arquivo nao foi incluido nos anexos desta remessa. O trecho de dependencias
+acima e a referencia literal do PDF, nao uma confirmacao do pom.xml atual.
+
+FIM DO RELATORIO
